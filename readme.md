@@ -11,5 +11,5 @@ ihdocker
 #### 已完成
 - 容器资源隔离, Namespace
 - 容器资源限制, Cgroup
-
+- 构造镜像, AUFS
 
