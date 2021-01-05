@@ -16,9 +16,12 @@ func RunContainerInitProcess() error {
 	cmdArray := readUserCommand()
 
 	log.Infof("cmdArry : %v", cmdArray)
+
 	if cmdArray == nil || len(cmdArray) == 0 {
 		return fmt.Errorf("Run container get user command error, cmdArray is nil")
 	}
+
+	setUpMount()
 
 	path, err := exec.LookPath(cmdArray[0])
 	if err != nil {
@@ -26,9 +29,6 @@ func RunContainerInitProcess() error {
 	}
 	log.Infof("%v", path)
 
-	syscall.Mount("", "/", "", syscall.MS_PRIVATE|syscall.MS_REC, "")
-	defaultMountFlags := syscall.MS_NOEXEC | syscall.MS_NOSUID | syscall.MS_NODEV
-	syscall.Mount("proc", "/proc", "proc", uintptr(defaultMountFlags), "")
 	if err := syscall.Exec(path, cmdArray[0:], os.Environ()); err != nil {
 		log.Errorf(err.Error())
 	}
@@ -55,7 +55,9 @@ func setUpMount() {
 
 	log.Infof("Current location is %s", pwd)
 
-	pivotRoot(pwd)
+	if err := pivotRoot(pwd); err != nil {
+		log.Errorf("pivot root err :%v", err)
+	}
 
 	defaultMountFlags := syscall.MS_NOEXEC | syscall.MS_NOSUID | syscall.MS_NODEV
 	syscall.Mount("proc", "/proc", "proc", uintptr(defaultMountFlags), "")
@@ -63,7 +65,12 @@ func setUpMount() {
 }
 
 func pivotRoot(root string) error {
-	if err := syscall.Mount(root, root, "bind", syscall.MS_BIND|syscall.MS_REC, ""); err != nil {
+
+	if err := syscall.Mount("", "/", "", syscall.MS_REC|syscall.MS_PRIVATE, " "); err != nil {
+		return fmt.Errorf("syscall Mount current root failure : %v", err)
+	}
+
+	if err := syscall.Mount(root, root, "bind", syscall.MS_BIND|syscall.MS_REC|syscall.MS_PRIVATE, ""); err != nil {
 		return fmt.Errorf("Mount rootfs to itself error : %v", err)
 	}
 
@@ -81,6 +88,11 @@ func pivotRoot(root string) error {
 		return fmt.Errorf("chdir %v", err)
 	}
 
-	return nil
+	pivotDir = filepath.Join("/", ".pivot_root")
 
+	if err := syscall.Unmount(pivotDir, syscall.MNT_DETACH); err != nil {
+		return fmt.Errorf("Unmount pivot_root dir %v", err)
+	}
+
+	return os.Remove(pivotDir)
 }

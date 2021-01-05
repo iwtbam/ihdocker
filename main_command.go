@@ -30,7 +30,8 @@ var runCommand = cli.Command{
 			CpuShare:    ctx.String("cpushare"),
 		}
 
-		Run(tty, cmdArray, resConf)
+		volume := ctx.String("v")
+		Run(tty, cmdArray, resConf, volume)
 		return nil
 	},
 
@@ -54,6 +55,11 @@ var runCommand = cli.Command{
 			Name:  "cpuset",
 			Usage: "cpuset limit",
 		},
+
+		cli.StringFlag{
+			Name:  "v",
+			Usage: "volume",
+		},
 	},
 }
 
@@ -64,5 +70,20 @@ var initCommand = cli.Command{
 		log.Infof("init come on")
 		err := container.RunContainerInitProcess()
 		return err
+	},
+}
+
+var commitCommand = cli.Command{
+	Name:  "commit",
+	Usage: "commit a container to image",
+
+	Action: func(ctx *cli.Context) error {
+		if len(ctx.Args()) < 1 {
+			return fmt.Errorf("Missing container name")
+		}
+
+		imageName := ctx.Args().Get(0)
+		commitContainer(imageName)
+		return nil
 	},
 }
